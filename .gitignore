@@ -1,0 +1,4 @@
+bin/
+pkg/
+_rel/
+src/github.com/issuu/srslog
