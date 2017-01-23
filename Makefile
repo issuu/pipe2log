@@ -12,7 +12,11 @@ GOPATH       ?= $(shell pwd)
 SRC          := $(shell find src -type f ! -wholename "*/.git*")
 
 GIT_HASH     := $(shell git rev-parse HEAD)
-CGO_LDFLAGS  := "-X main.appVersion=$(APP_VERSION).$(BUILD_NUMBER) -X main.appGitHash=$(GIT_HASH) -X main.appBuildTime=$(shell date -u +%Y-%m-%d:%H.%M.%S)"
+CGO_LDFLAGS  := -X main.appVersion=$(APP_VERSION).$(BUILD_NUMBER) -X main.appGitHash=$(GIT_HASH) -X main.appBuildTime=$(shell date -u +%Y-%m-%d:%H.%M.%S)
+
+# create static linked binary for linux based systems
+linux_LDFLAGS  = "-linkmode external -extldflags '-static' $(CGO_LDFLAGS)"
+darwin_LDFLAGS = "$(CGO_LDFLAGS)"
 
 #
 # for local development
@@ -33,11 +37,12 @@ release:
 
 _rel/$(REL_NAME)_%: Makefile src/github.com/issuu/pipe2log/Dockerfile.build $(SRC)
 _rel/$(REL_NAME)_%: GOOS=$*
+_rel/$(REL_NAME)_%: GOOS_LDFLAGS=$($(GOOS)_LDFLAGS)
 _rel/$(REL_NAME)_%:
 	-mkdir -p _rel
 	docker build \
 		-t $(REL_NAME)-$(GOOS):$(UUID) \
-		--build-arg CGO_LDFLAGS=$(CGO_LDFLAGS) --build-arg GOOS=$(GOOS) \
+		--build-arg CGO_LDFLAGS=$(GOOS_LDFLAGS) --build-arg GOOS=$(GOOS) \
 		-f src/github.com/issuu/pipe2log/Dockerfile.build \
 		src/github.com/issuu/pipe2log
 	docker run --name $(REL_NAME)-$(GOOS)-$(UUID) $(REL_NAME)-$(GOOS):$(UUID) echo running
