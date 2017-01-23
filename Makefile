@@ -1,7 +1,7 @@
 
 BUILD_NUMBER ?= 0
 
-BUILD_GOOS   := linux darwin
+BUILD_GOOS   ?= linux darwin
 
 APP_VERSION  := 0.9
 

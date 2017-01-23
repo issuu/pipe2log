@@ -27,6 +27,8 @@ var (
     appGitHash   = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 )
 
+var os_hostname string
+
 // command line options / flags
 var flagSyslogUri string
 var flagSyslogFacility string
@@ -62,7 +64,11 @@ func issuuRFC5424Formatter(p syslog.Priority, hostname, appname, content string)
     timestamp := time.Now().Format(RFC3339Micro)
     pid := os.Getppid()
     if flagSyslogHostname != "" {
-        hostname = flagSyslogHostname
+        if strings.HasPrefix(flagSyslogHostname,"+") {
+            hostname = flagSyslogHostname[1:] + "." + os_hostname
+        } else {
+            hostname = flagSyslogHostname
+        }
     }
     if hostname == "" {
         hostname = "-"  // syslog nil value
@@ -357,13 +363,14 @@ func mapFacilityString(facility string) syslog.Priority {
 }
 
 func init() {
-    hostname, err := os.Hostname()
-    if (err != nil) { hostname = "" }
+    var err error
+    os_hostname, err = os.Hostname()
+    if (err != nil) { os_hostname = "" }
     argv0 := os.Args[0]
 
     defaultSyslogUri      := "localhost"
     defaultSyslogFacility := "local4"
-    defaultSyslogHostname := hostname
+    defaultSyslogHostname := os_hostname
     defaultSyslogAppname  := argv0
     defaultCommand        := "-"
     defaultLogformat      := ""
@@ -372,7 +379,7 @@ func init() {
     flag.StringVar(&flagSyslogUri, "sysloguri", defaultSyslogUri, "syslog host, i.e. localhost, /dev/log, (udp|tcp)://localhost[:514]")
     flag.StringVar(&flagSyslogFacility, "facility", defaultSyslogFacility, "what syslog facility to use.")
     flag.StringVar(&flagSyslogAppname, "appname", defaultSyslogAppname, "what application name to use in syslog message.")
-    flag.StringVar(&flagSyslogHostname, "hostname", defaultSyslogHostname, "what source/hostname to use in syslog message.")
+    flag.StringVar(&flagSyslogHostname, "hostname", defaultSyslogHostname, "what source/hostname to use in syslog message, use a plus '+' prefix to combine the source with current existing hostname, useful for docker container ids.")
     flag.StringVar(&flagLogformat, "logformat", defaultLogformat, "default behaviour is to scan for severity, i.e. ERROR,DEBUG,CRIT,.. in the beginning of every line of input. Other options for logformat are 'pm2json' for parsing NodeJs PM2 json output.")
     flag.StringVar(&flagCommand, "cmd", defaultCommand, "currently can't be used for anything else than reading from pipe.")
 }

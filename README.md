@@ -12,6 +12,8 @@ Usage of pipe2log (check for updated documentation with pipe2log -help):
         Valid options are: daemon, user, syslog, local[0-7]
   -hostname string
         what source/hostname to use in syslog message. (default "<the os hostname>")
+        prefix the hostname with a plus sign "+" to combine it with the os hostname,
+        +<my hostname>.<os hostname> useful for tracking docker container ids
   -logformat string
         default behaviour is to scan for severity, i.e. ERROR,DEBUG,CRIT,.. in
         the beginning of every line of input. Other options for logformat are
