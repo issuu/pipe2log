@@ -39,6 +39,10 @@ var flagCommand string
 var flagLogformat string
 var flagVersion bool
 var flagRFC3164 bool
+var flagRFC3339 bool
+
+// if using local log device we can't set/change hostname
+var localLogging bool
 
 var logWriter *syslog.Writer
 
@@ -82,6 +86,9 @@ func issuuRFC5424Formatter(p syslog.Priority, hostname, appname, content string)
     return msg
 }
 
+// the original spec timestamp
+const RFC3164 = "Jan 02 15:04:05"
+
 // RFC3164ormatter provides an RFC 3164 message with RFC3339 timestamp.
 // create our own customized version
 func issuuRFC3164Formatter(p syslog.Priority, hostname, appname, content string) string {
@@ -90,7 +97,12 @@ func issuuRFC3164Formatter(p syslog.Priority, hostname, appname, content string)
     // MSG             = TAG CONTENT
     // TIMESTAMP       = Mmm dd hh:mm:ss
     // https://tools.ietf.org/html/rfc3164
-    timestamp := time.Now().Format(RFC3339Milli)
+    var timestamp string
+    if flagRFC3339 {
+        timestamp = time.Now().Format(RFC3339Milli)
+    } else {
+        timestamp = time.Now().Format(RFC3164)
+    }
     pid := os.Getppid()
     if flagSyslogHostname != "" {
         if strings.HasPrefix(flagSyslogHostname,"+") {
@@ -105,8 +117,14 @@ func issuuRFC3164Formatter(p syslog.Priority, hostname, appname, content string)
     if appname == "" {
         appname = os.Args[0]
     }
-    msg := fmt.Sprintf("<%d>%s %s %s[%d]: %s",
-        p, timestamp, hostname, appname, pid, content)
+    var msg string
+    if localLogging {
+        msg = fmt.Sprintf("<%d>%s %s[%d]: %s",
+            p, timestamp, appname, pid, content)
+    } else {
+        msg = fmt.Sprintf("<%d>%s %s %s[%d]: %s",
+            p, timestamp, hostname, appname, pid, content)
+    }
     return msg
 }
 
@@ -405,8 +423,9 @@ func init() {
     defaultLogformat      := ""
 
     flag.BoolVar(&flagVersion, "version", false, "prints current app version")
-    flag.BoolVar(&flagRFC3164, "rfc3164", false, "use syslog rfc3164 msg format (default is to use rfc5424)")
-    flag.StringVar(&flagSyslogUri, "sysloguri", defaultSyslogUri, "syslog host, i.e. localhost, /dev/log, (udp|tcp)://localhost[:514]")
+    flag.BoolVar(&flagRFC3164, "rfc3164", false, "use original syslog rfc3164 msg format (default is to use rfc5424)")
+    flag.BoolVar(&flagRFC3339, "rfc3339", false, "use rfc3339 timestamp (milliseconds) with rfc3164 message format")
+    flag.StringVar(&flagSyslogUri, "sysloguri", defaultSyslogUri, "syslog host, i.e. localhost, /dev/log, (udp|tcp)://localhost[:514]. When using local log device /dev/log you can't change/set the hostname in the message. Local logging also implies rfc3164 format.")
     flag.StringVar(&flagSyslogFacility, "facility", defaultSyslogFacility, "what syslog facility to use.")
     flag.StringVar(&flagSyslogAppname, "appname", defaultSyslogAppname, "what application name to use in syslog message.")
     flag.StringVar(&flagSyslogHostname, "hostname", defaultSyslogHostname, "what source/hostname to use in syslog message, use a plus '+' prefix to combine the source with current existing hostname, useful for docker container ids.")
@@ -445,6 +464,9 @@ func main() {
         u.Host = ""
         u.Path = ""
     }
+    // if using local log device we can't set/change hostname
+    localLogging = u.Scheme == "" && u.Host == "" && strings.HasPrefix(u.Path,"/")
+
     if err != nil {
         log.Fatal(err)
     }
@@ -455,7 +477,7 @@ func main() {
     checkError(err)
 
     // set syslog format
-    if flagRFC3164 {
+    if flagRFC3164 || localLogging {
         logWriter.SetFormatter(issuuRFC3164Formatter)
     } else {
         logWriter.SetFormatter(issuuRFC5424Formatter)

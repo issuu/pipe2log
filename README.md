@@ -20,9 +20,13 @@ Usage of pipe2log (check for updated documentation with pipe2log -help):
         'pm2json' for parsing NodeJs PM2 json output.
   -sysloguri string
         syslog host, i.e. localhost, /dev/log, (udp|tcp)://localhost[:514] (default "localhost")
+        When using local log device /dev/log you can not change/set the hostname in the message.
+        Local logging also implies rfc3164 format.
   -rfc3164
         format syslog messages using the rfc3164 protocol,
         default is to use the newer rfc5424 protocol.
+  -rfc3339
+        use rfc3339 timestamp in rfc3164 messages (has millisecond resolution).
   -version
         prints current app version
 ```
