@@ -38,6 +38,7 @@ var flagSyslogHostname string
 var flagCommand string
 var flagLogformat string
 var flagVersion bool
+var flagRFC3164 bool
 
 var logWriter *syslog.Writer
 
@@ -78,6 +79,34 @@ func issuuRFC5424Formatter(p syslog.Priority, hostname, appname, content string)
     }
     msg := fmt.Sprintf("<%d>%d %s %s %s %d %s %s %s",
         p, 1, timestamp, hostname, appname, pid, msgid, structured_data, content)
+    return msg
+}
+
+// RFC3164ormatter provides an RFC 3164 message with RFC3339 timestamp.
+// create our own customized version
+func issuuRFC3164Formatter(p syslog.Priority, hostname, appname, content string) string {
+    // SYSLOG-MSG      = PRI HEADER SP MSG
+    // HEADER          = TIMESTAMP SP HOSTNAME_OR_IP
+    // MSG             = TAG CONTENT
+    // TIMESTAMP       = Mmm dd hh:mm:ss
+    // https://tools.ietf.org/html/rfc3164
+    timestamp := time.Now().Format(RFC3339Milli)
+    pid := os.Getppid()
+    if flagSyslogHostname != "" {
+        if strings.HasPrefix(flagSyslogHostname,"+") {
+            hostname = flagSyslogHostname[1:] + "." + os_hostname
+        } else {
+            hostname = flagSyslogHostname
+        }
+    }
+    if hostname == "" {
+        hostname = "-"  // syslog nil value ? should be ip no
+    }
+    if appname == "" {
+        appname = os.Args[0]
+    }
+    msg := fmt.Sprintf("<%d>%s %s %s[%d]: %s",
+        p, timestamp, hostname, appname, pid, content)
     return msg
 }
 
@@ -376,6 +405,7 @@ func init() {
     defaultLogformat      := ""
 
     flag.BoolVar(&flagVersion, "version", false, "prints current app version")
+    flag.BoolVar(&flagRFC3164, "rfc3164", false, "use syslog rfc3164 msg format (default is to use rfc5424)")
     flag.StringVar(&flagSyslogUri, "sysloguri", defaultSyslogUri, "syslog host, i.e. localhost, /dev/log, (udp|tcp)://localhost[:514]")
     flag.StringVar(&flagSyslogFacility, "facility", defaultSyslogFacility, "what syslog facility to use.")
     flag.StringVar(&flagSyslogAppname, "appname", defaultSyslogAppname, "what application name to use in syslog message.")
@@ -424,8 +454,12 @@ func main() {
     logWriter, err = syslog.Dial(u.Scheme, u.Host+u.Path, syslog.LOG_DEBUG|syslog_facility, flagSyslogAppname)
     checkError(err)
 
-    // set syslog format - could be a cmd option
-    logWriter.SetFormatter(issuuRFC5424Formatter)
+    // set syslog format
+    if flagRFC3164 {
+        logWriter.SetFormatter(issuuRFC3164Formatter)
+    } else {
+        logWriter.SetFormatter(issuuRFC5424Formatter)
+    }
 
     logWriter.Info(appTag+" program started.")
 
