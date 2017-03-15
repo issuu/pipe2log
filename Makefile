@@ -28,7 +28,7 @@ bin/$(REL_NAME): $(SRC)
 	GOPATH=$(GOPATH) go install -ldflags $(CGO_LDFLAGS) -v
 
 clean:
-	-rm -fr _rel/*
+	-rm -fr _rel/* equivs/pipe2log.control
 	@echo make target $@ done
 
 release: clean
@@ -68,5 +68,6 @@ debian: _rel/pipe2log_linux equivs/pipe2log.control
 	cp $< equivs/pipe2log
 	cd equivs ; equivs-build pipe2log.control ; rm pipe2log ; mv pipe2log_$(APP_VERSION)-$(BUILD_NUMBER)_*.deb ../_rel/
 	which commit-deb2repo.sh && commit-deb2repo.sh -r infrastructure _rel/pipe2log_$(APP_VERSION)-$(BUILD_NUMBER)_*.deb
+	-rm equivs/pipe2log.control
 	@echo make target $@ done
 
