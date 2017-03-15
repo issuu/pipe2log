@@ -59,3 +59,13 @@ github-release:
 	github-release.sh -t v$(APP_VERSION).$(BUILD_NUMBER) -o issuu -r pipe2log -a $(WORKSPACE)/_rel 
 	@echo make target $@ done
 
+equivs/pipe2log.control: equivs/pipe2log.template
+	sed 's/{{Version}}/$(APP_VERSION)/' $< > $@
+	@echo make target $@ done
+
+debian: _rel/pipe2log_linux equivs/pipe2log.control
+	cp $< equivs/pipe2log
+	cd equivs ; equivs-build pipe2log.control ; rm pipe2log ; mv pipe2log_$(APP_VERSION)_*.deb ../_rel/
+	which commit-deb2repo.sh && commit-deb2repo.sh -r infrastructure _rel/pipe2log_$(APP_VERSION)_*.deb
+	@echo make target $@ done
+

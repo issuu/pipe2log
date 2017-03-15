@@ -21,6 +21,10 @@ node {
                 sh(script: 'make release')
             }
 
+            stage(name: 'Debian') {
+                sh(script: 'make debian')
+            }
+
             stage(name: 'GithubRelease') {
                 sh(script: 'make github-release')
             }
