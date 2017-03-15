@@ -248,7 +248,7 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
     return 0, nil, nil
 }
 
-var severity_re = regexp.MustCompile("^((DEBUG|INFO|NOTICE|WARN|WARNING|ERR|ERROR|CRIT|CRITICAL|ALERT)) (.*)$")
+var severity_re = regexp.MustCompile("^[[]?((DEBUG|INFO|NOTICE|WARN|WARNING|ERR|ERROR|CRIT|CRITICAL|ALERT))[]]? (.*)$")
 
 func processScanData(data scandata) {
     switch {
