@@ -3,7 +3,8 @@ BUILD_NUMBER ?= 0
 
 BUILD_GOOS   ?= linux darwin
 
-APP_VERSION  := 0.9
+# need to be in the format major.minor(.revision)
+APP_VERSION  := 0.9.1
 
 REL_NAME     := pipe2log
 UUID         := $(shell uuidgen)
@@ -60,7 +61,7 @@ github-release:
 	@echo make target $@ done
 
 equivs/pipe2log.control: equivs/pipe2log.template
-	sed 's/{{Version}}/$(APP_VERSION)/' $< > $@
+	sed 's/{{Version}}/$(APP_VERSION)-$(BUILD_NUMBER)/' $< > $@
 	@echo make target $@ done
 
 debian: _rel/pipe2log_linux equivs/pipe2log.control
