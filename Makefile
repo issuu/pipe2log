@@ -13,7 +13,7 @@ GOPATH       ?= $(shell pwd)
 SRC          := $(shell find src -type f ! -wholename "*/.git*")
 
 GIT_HASH     := $(shell git rev-parse HEAD)
-CGO_LDFLAGS  := -X main.appVersion=$(APP_VERSION).$(BUILD_NUMBER) -X main.appGitHash=$(GIT_HASH) -X main.appBuildTime=$(shell date -u +%Y-%m-%d:%H.%M.%S)
+CGO_LDFLAGS  := -X main.appVersion=$(APP_VERSION)-$(BUILD_NUMBER) -X main.appGitHash=$(GIT_HASH) -X main.appBuildTime=$(shell date -u +%Y-%m-%d:%H.%M.%S)
 
 # create static linked binary for linux based systems
 linux_LDFLAGS  = "-linkmode external -extldflags '-static' $(CGO_LDFLAGS)"
@@ -25,7 +25,7 @@ darwin_LDFLAGS = "$(CGO_LDFLAGS)"
 bin/$(REL_NAME): $(SRC)
 	cd src/github.com/issuu/pipe2log ; \
 	GOPATH=$(GOPATH) go get -v -d ; \
-	GOPATH=$(GOPATH) go install -ldflags $(CGO_LDFLAGS) -v
+	GOPATH=$(GOPATH) go install -v -ldflags "$(CGO_LDFLAGS)"
 
 clean:
 	-rm -fr _rel/* equivs/pipe2log.control
