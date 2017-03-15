@@ -57,7 +57,7 @@ _rel/$(REL_NAME)_%:
 
 github-release:
 	@# hoping the jenkins github plugin will be able to do this in the future.
-	github-release.sh -t v$(APP_VERSION).$(BUILD_NUMBER) -o issuu -r pipe2log -a $(WORKSPACE)/_rel 
+	github-release.sh -t v$(APP_VERSION)-$(BUILD_NUMBER) -o issuu -r pipe2log -a $(WORKSPACE)/_rel 
 	@echo make target $@ done
 
 equivs/pipe2log.control: equivs/pipe2log.template
