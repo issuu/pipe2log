@@ -66,7 +66,7 @@ equivs/pipe2log.control: equivs/pipe2log.template
 
 debian: _rel/pipe2log_linux equivs/pipe2log.control
 	cp $< equivs/pipe2log
-	cd equivs ; equivs-build pipe2log.control ; rm pipe2log ; mv pipe2log_$(APP_VERSION)_*.deb ../_rel/
-	which commit-deb2repo.sh && commit-deb2repo.sh -r infrastructure _rel/pipe2log_$(APP_VERSION)_*.deb
+	cd equivs ; equivs-build pipe2log.control ; rm pipe2log ; mv pipe2log_$(APP_VERSION)-$(BUILD_NUMBER)_*.deb ../_rel/
+	which commit-deb2repo.sh && commit-deb2repo.sh -r infrastructure _rel/pipe2log_$(APP_VERSION)-$(BUILD_NUMBER)_*.deb
 	@echo make target $@ done
 
