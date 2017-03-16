@@ -12,7 +12,7 @@ ARG GOOS
 
 CMD ["go-wrapper", "run"]
 
-COPY . /go/src/app
+COPY src/github.com/issuu/pipe2log/. /go/src/app
 RUN go-wrapper download
 RUN env GOOS=${GOOS} go-wrapper install -ldflags "${CGO_LDFLAGS}"
 

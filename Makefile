@@ -28,7 +28,7 @@ bin/$(REL_NAME): $(SRC)
 	GOPATH=$(GOPATH) go install -v -ldflags "$(CGO_LDFLAGS)"
 
 clean:
-	-rm -fr _rel/* equivs/pipe2log.control
+	-rm -fr _rel/* equivs/pipe2log.control bin/*
 	@echo make target $@ done
 
 release: clean
@@ -36,7 +36,7 @@ release: $(foreach GOOS,$(BUILD_GOOS),_rel/$(REL_NAME)_$(GOOS))
 release:
 	@echo make target $@ done
 
-_rel/$(REL_NAME)_%: Makefile src/github.com/issuu/pipe2log/Dockerfile.build $(SRC)
+_rel/$(REL_NAME)_%: Makefile Dockerfile.build $(SRC)
 _rel/$(REL_NAME)_%: GOOS=$*
 _rel/$(REL_NAME)_%: GOOS_LDFLAGS=$($(GOOS)_LDFLAGS)
 _rel/$(REL_NAME)_%:
@@ -44,8 +44,8 @@ _rel/$(REL_NAME)_%:
 	docker build \
 		-t $(REL_NAME)-$(GOOS):$(UUID) \
 		--build-arg CGO_LDFLAGS=$(GOOS_LDFLAGS) --build-arg GOOS=$(GOOS) \
-		-f src/github.com/issuu/pipe2log/Dockerfile.build \
-		src/github.com/issuu/pipe2log
+		-f Dockerfile.build \
+		.
 	docker run --name $(REL_NAME)-$(GOOS)-$(UUID) $(REL_NAME)-$(GOOS):$(UUID) echo running
 	docker cp $(REL_NAME)-$(GOOS)-$(UUID):/go/bin/$(GOOS)_amd64/app $@ || \
 		docker cp $(REL_NAME)-$(GOOS)-$(UUID):/go/bin/app $@
