@@ -47,11 +47,25 @@ var localLogging bool
 var logWriter *syslog.Writer
 
 type pm2Message struct {
+    Message string
+    Type string
+    Status string
+    App_name string
+    Process_id int64
+}
+type pm2Message1 struct {
     Message string      `json:"message"`
     Type string         `json:"type"`        // "out", "err", "process_event", ... ?
     Status string       `json:"status"`      // iff type is process_event
     App_name string     `json:"app_name"`
     Process_id int64    `json:"process_id"`
+}
+type pm2Message2 struct {
+    Message string      `json:"message"`
+    Type string         `json:"type"`        // "out", "err", "process_event", ... ?
+    Status string       `json:"status"`      // iff type is process_event
+    App_name string     `json:"app_name"`
+    Process_id string   `json:"process_id"`
 }
 
 const RFC3339Milli = "2006-01-02T15:04:05.999Z07:00"
@@ -254,10 +268,30 @@ func processScanData(data scandata) {
     switch {
     case flagLogformat == "pm2json":
         var m pm2Message
-        err := json.Unmarshal(data.data, &m)
+        var m1 pm2Message1
+        err := json.Unmarshal(data.data, &m1)
+        if err != nil {
+            var m2 pm2Message2
+            err = json.Unmarshal(data.data, &m2)
+            if err == nil {
+                m.Type = m2.Type
+                m.Message = m2.Message
+                m.Status = m2.Status
+                m.Process_id = 0
+                m.App_name = m2.App_name
+            }
+        } else {
+            m.Type = m1.Type
+            m.Message = m1.Message
+            m.Status = m1.Status
+            m.Process_id = m1.Process_id
+            m.App_name = m1.App_name
+        }
         if err == nil {
             //fmt.Printf("decoded message: %s\n",m.Message)
             switch {
+            case m.Type == "PM2":
+                logWriter.Crit(m.Message)
             case m.Type == "err":
                 logWriter.Err(m.Message)
             case m.Type == "out":
