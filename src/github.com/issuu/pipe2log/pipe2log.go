@@ -517,7 +517,7 @@ func main() {
         logWriter.SetFormatter(issuuRFC5424Formatter)
     }
 
-    logWriter.Info(appTag+" program started.")
+    logWriter.Info(appTag+" program started, version "+appVersion)
 
     // send some debug log - if running on a Mac anything not warning or worse are by default filtered out
     logWriter.Debug(appTag+" testing debug log statement.")
