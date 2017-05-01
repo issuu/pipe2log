@@ -21,6 +21,11 @@ import (
 
 const appTag = "pipe2log"
 
+const (
+    MaxScanTokenSize = 64 * 1024
+    startBufSize = 128 * 1024    // Size of initial allocation for buffer.
+)
+
 var (
     appVersion   = "1.0.0"
     appBuildTime = "2017-01-19 23:59:59 UTC"
@@ -97,6 +102,7 @@ func issuuRFC5424Formatter(p syslog.Priority, hostname, appname, content string)
     }
     msg := fmt.Sprintf("<%d>%d %s %s %s %d %s %s %s",
         p, 1, timestamp, hostname, appname, pid, msgid, structured_data, content)
+    //fmt.Println(msg)
     return msg
 }
 
