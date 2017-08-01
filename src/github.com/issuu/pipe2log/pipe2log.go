@@ -268,7 +268,7 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
     return 0, nil, nil
 }
 
-var severity_re = regexp.MustCompile("^[[]?((DEBUG|INFO|NOTICE|WARN|WARNING|ERR|ERROR|CRIT|CRITICAL|ALERT))[]]?[ :](.*)$")
+var severity_re = regexp.MustCompile("^[ ]*([0-9- /:.]*)[[]?((DEBUG|INFO|NOTICE|WARN|WARNING|ERR|ERROR|CRIT|CRITICAL|ALERT))[]]?[ :](.*)$")
 
 func processScanData(data scandata) {
     switch {
@@ -318,8 +318,8 @@ func processScanData(data scandata) {
     default:
         rs := severity_re.FindSubmatch(data.data)
         if rs != nil {
-            severity := fmt.Sprintf("%s",rs[2])
-            msg := fmt.Sprintf("%s",rs[3])
+            severity := fmt.Sprintf("%s",rs[3])
+            msg := fmt.Sprintf("%s%s",rs[1],rs[4])
             switch {
             case "DEBUG" == severity:
                logWriter.Debug(msg)
