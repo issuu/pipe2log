@@ -22,8 +22,8 @@ import (
 const appTag = "pipe2log"
 
 const (
-    MaxScanTokenSize = 512 * 1024
-    startBufSize = 1024 * 1024    // Size of initial allocation for buffer.
+    MaxScanTokenSize = 4096 * 1024
+    startBufSize = 16384 * 1024    // Size of initial allocation for buffer.
 )
 
 var (
@@ -312,7 +312,7 @@ func processScanData(data scandata) {
             }
         } else {
             logmsg := fmt.Sprintf("%s decoding error cannot parse json '%s', err '%s'", appTag, data.data, err)
-            logWriter.Crit(logmsg)
+            logWriter.Warning(logmsg)
             log.Println(logmsg)
         }
     default:
