@@ -359,7 +359,8 @@ func scanPipeLog() {
         r1.Split(ScanLines)
     }
 
-    dc1 := make(chan scandata, 1)
+    // Set channel buffer to same size as our io buffer
+    dc1 := make(chan scandata, startBufSize)
     go inputScanner(dc1, 1, r1)
 
     loop:for {
