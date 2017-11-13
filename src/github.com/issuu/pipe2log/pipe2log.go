@@ -22,8 +22,8 @@ import (
 const appTag = "pipe2log"
 
 const (
-    MaxScanTokenSize = 4096 * 1024
-    startBufSize = 16384 * 1024    // Size of initial allocation for buffer.
+    MaxScanTokenSize = 16384 * 1024
+    startBufSize = 65536 * 1024    // Size of initial allocation for buffer.
 )
 
 var (
@@ -31,6 +31,8 @@ var (
     appBuildTime = "2017-01-19 23:59:59 UTC"
     appGitHash   = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 )
+
+var appTagVersion = appTag+" (v"+appVersion+")"
 
 var os_hostname string
 
@@ -217,7 +219,7 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
     // read open bracket
     if data[0] != '{' {
         if idx := bytes.IndexByte(data, '{'); idx >= 0 {
-            log.Printf(appTag+" skipping up to next curly bracket: %s\n",data[0:idx])
+            log.Printf(appTagVersion+" skipping up to next curly bracket: %s\n",data[0:idx])
             return idx, nil, nil
         }
         return len(data), nil, nil
@@ -306,12 +308,12 @@ func processScanData(data scandata) {
                 logmsg := fmt.Sprintf("%s: %s", m.Type, m.Status)
                 logWriter.Debug(logmsg)
             default:
-                logmsg := fmt.Sprintf("%s unknown pm2 log type '%s', data: '%s'", appTag, m.Type, data.data)
+                logmsg := fmt.Sprintf("%s unknown pm2 log type '%s', data: '%s'", appTagVersion, m.Type, data.data)
                 logWriter.Crit(logmsg)
                 log.Println(logmsg)
             }
         } else {
-            logmsg := fmt.Sprintf("%s decoding error cannot parse json '%s', err '%s'", appTag, data.data, err)
+            logmsg := fmt.Sprintf("%s decoding error cannot parse json '%s', err '%s'", appTagVersion, data.data, err)
             logWriter.Warning(logmsg)
             log.Println(logmsg)
         }
@@ -337,7 +339,7 @@ func processScanData(data scandata) {
                logWriter.Alert(msg)
             default:
                // should never ever happen
-               logmsg := fmt.Sprintf("%s unknown severity '%s' with msg '%s'", appTag, severity, msg)
+               logmsg := fmt.Sprintf("%s unknown severity '%s' with msg '%s'", appTagVersion, severity, msg)
                logWriter.Crit(logmsg)
                log.Fatalln(logmsg)
             }
@@ -524,16 +526,16 @@ func main() {
         logWriter.SetFormatter(issuuRFC5424Formatter)
     }
 
-    logWriter.Info(appTag+" program started, version "+appVersion)
+    logWriter.Info(appTagVersion+" program started, version "+appVersion)
 
     // send some debug log - if running on a Mac anything not warning or worse are by default filtered out
-    logWriter.Debug(appTag+" testing debug log statement.")
-    logWriter.Info(appTag+" testing info log statement.")
-    logWriter.Notice(appTag+" testing notice log statement.")
-    logWriter.Warning(appTag+" testing warning log statement.")
-    logWriter.Err(appTag+" testing error log statement.")
-    logWriter.Crit(appTag+" testing critical log statement.")
-    logWriter.Alert(appTag+" testing alert log statement.")
+    logWriter.Debug(appTagVersion+" testing debug log statement.")
+    logWriter.Info(appTagVersion+" testing info log statement.")
+    logWriter.Notice(appTagVersion+" testing notice log statement.")
+    logWriter.Warning(appTagVersion+" testing warning log statement.")
+    logWriter.Err(appTagVersion+" testing error log statement.")
+    logWriter.Crit(appTagVersion+" testing critical log statement.")
+    logWriter.Alert(appTagVersion+" testing alert log statement.")
 
     if flagCommand == "-" {
         scanPipeLog()
@@ -541,6 +543,6 @@ func main() {
         scanCommand()
     }
 
-    logWriter.Info(appTag+" program ended.")
+    logWriter.Info(appTagVersion+" program ended.")
     logWriter.Close()
 }
