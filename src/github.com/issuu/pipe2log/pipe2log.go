@@ -310,12 +310,12 @@ func processScanData(data scandata) {
             default:
                 logmsg := fmt.Sprintf("%s unknown pm2 log type '%s', data: '%s'", appTagVersion, m.Type, data.data)
                 logWriter.Crit(logmsg)
-                log.Println(logmsg)
+                //log.Println(logmsg)
             }
         } else {
             logmsg := fmt.Sprintf("%s decoding error cannot parse json '%s', err '%s'", appTagVersion, data.data, err)
             logWriter.Warning(logmsg)
-            log.Println(logmsg)
+            //log.Println(logmsg)
         }
     default:
         rs := severity_re.FindSubmatch(data.data)
@@ -341,7 +341,7 @@ func processScanData(data scandata) {
                // should never ever happen
                logmsg := fmt.Sprintf("%s unknown severity '%s' with msg '%s'", appTagVersion, severity, msg)
                logWriter.Crit(logmsg)
-               log.Fatalln(logmsg)
+               //log.Fatalln(logmsg)
             }
         } else {
             // use default log severity ? a command option/flag ?
@@ -526,16 +526,16 @@ func main() {
         logWriter.SetFormatter(issuuRFC5424Formatter)
     }
 
-    logWriter.Info(appTagVersion+" program started, version "+appVersion)
+    logWriter.Info(appTag+" program started, version "+appVersion)
 
     // send some debug log - if running on a Mac anything not warning or worse are by default filtered out
-    logWriter.Debug(appTagVersion+" testing debug log statement.")
-    logWriter.Info(appTagVersion+" testing info log statement.")
-    logWriter.Notice(appTagVersion+" testing notice log statement.")
-    logWriter.Warning(appTagVersion+" testing warning log statement.")
-    logWriter.Err(appTagVersion+" testing error log statement.")
-    logWriter.Crit(appTagVersion+" testing critical log statement.")
-    logWriter.Alert(appTagVersion+" testing alert log statement.")
+    logWriter.Debug(appTag+" testing debug log statement.")
+    logWriter.Info(appTag+" testing info log statement.")
+    logWriter.Notice(appTag+" testing notice log statement.")
+    logWriter.Warning(appTag+" testing warning log statement.")
+    logWriter.Err(appTag+" testing error log statement.")
+    logWriter.Crit(appTag+" testing critical log statement.")
+    logWriter.Alert(appTag+" testing alert log statement.")
 
     if flagCommand == "-" {
         scanPipeLog()
