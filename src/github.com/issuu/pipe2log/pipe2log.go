@@ -14,8 +14,6 @@ import (
     "os"
     "os/exec"
     url "net/url"
-    "go/scanner"
-    "go/token"
     "strings"
 )
 
@@ -225,20 +223,14 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
         return len(data), nil, nil
     }
 
-    var s scanner.Scanner
-    fset := token.NewFileSet()                       // positions are relative to fset
-    file := fset.AddFile("", fset.Base(), len(data)) // register input "file"
-    s.Init(file, data, nil /* no error handler */, scanner.ScanComments)
-
+    var p int = 0
     var braces int = 0
-    var pos token.Pos
-    var tok token.Token
+    var escape bool = false
+    var quotes bool = false
+    var l int = len(data)
 
-    // the default go tokenizer handles quoted strings for us,
-    // so we do not to worry about curly brackets inside a string
     for {
-        switch pos, tok, _ = s.Scan(); tok {
-        case token.EOF:
+        if p >= l {
             // If we're at EOF, we have a final, non-terminated line. Return it.
             if atEOF {
                 return len(data), data, nil
@@ -246,18 +238,28 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
             // Request more data.
             return 0, nil, nil
             //break loop
-        case token.LBRACE:
-            braces += 1
-        case token.RBRACE:
-            braces -= 1
+        }
+        switch data[p] {
+        case '"':
+            if !escape {quotes = !quotes}
+            escape = false
+        case '\\':
+            escape = !escape
+        case '{':
+            if !escape && !quotes {braces += 1}
+            escape = false
+        case '}':
+            if !escape && !quotes {braces -= 1}
+            escape = false
             if (braces == 0) {
                 // hooray we got an object
-                p := file.Offset(pos)
-                return p+2,data[0:p+1], nil
+                return p+1,data[0:p+1], nil
             }
         default:
+            escape = false
             //fmt.Printf("%s\t%s\t%q\n", fset.Position(pos), tok, lit)
         }
+        p++
     }
 
     // we should never reach this point
@@ -266,6 +268,7 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
     if atEOF {
         return len(data), data, nil
     }
+
     // Request more data.
     return 0, nil, nil
 }
@@ -296,7 +299,7 @@ func processScanData(data scandata) {
             m.App_name = m1.App_name
         }
         if err == nil {
-            //fmt.Printf("decoded message: %s\n",m.Message)
+            //fmt.Printf("decoded type: %s, message: %s\n",m.Type,m.Message)
             switch {
             case m.Type == "PM2":
                 logWriter.Crit(m.Message)
