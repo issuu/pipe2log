@@ -109,6 +109,7 @@ type pinoMessage struct {
     Stack string
     Hostname string
     Process_id int64
+    Extra string
 }
 type pinoMessage1 struct {
     Message string      `json:"msg"`
@@ -117,6 +118,7 @@ type pinoMessage1 struct {
     Type string         `json:"type"`        // "out", "err", "process_event", ... ?
     Hostname string     `json:"hostname"`
     Process_id int64    `json:"pid"`
+    Extra map[string]interface{} `json:"-"`
 }
 
 const RFC3339Milli = "2006-01-02T15:04:05.999Z07:00"
@@ -383,19 +385,36 @@ func processScanData(data scandata) {
             m.Stack = m1.Stack
             m.Process_id = m1.Process_id
             m.Hostname = m1.Hostname
+            m.Extra = ""
+            err = json.Unmarshal(data.data, &m1.Extra)
+            if err == nil {
+                // remove values we already have
+                delete(m1.Extra, "v")
+                delete(m1.Extra, "time")
+                delete(m1.Extra, "level")
+                delete(m1.Extra, "msg")
+                delete(m1.Extra, "pid")
+                delete(m1.Extra, "type")
+                delete(m1.Extra, "stack")
+                delete(m1.Extra, "hostname")
+                if len(m1.Extra) > 0 {
+                    _byteArray, _ := json.Marshal(m1.Extra)
+                    m.Extra = fmt.Sprintf(" %s", _byteArray)
+                }
+            }
         }
         if err == nil {
             switch {
             case m.Type == "Error":
-                logWriter.Err(m.Stack)
+                logWriter.Err(m.Stack + m.Extra)
             case m.Type == "" && m.Level >= 50:
-                logWriter.Err(m.Message)
+                logWriter.Err(m.Message + m.Extra)
             case m.Type == "" && m.Level >= 40:
-                logWriter.Warning(m.Message)
+                logWriter.Warning(m.Message + m.Extra)
             case m.Type == "" && m.Level >= 30:
-                logWriter.Info(m.Message)
+                logWriter.Info(m.Message + m.Extra)
             case m.Type == "" && m.Level >= 20:
-                logWriter.Debug(m.Message)
+                logWriter.Debug(m.Message + m.Extra)
             default:
                 logmsg := fmt.Sprintf("%s unknown pino log type '%s', level: %d, data: '%s'", appTagVersion, m.Type, m.Level, data.data)
                 logWriter.Crit(logmsg)
