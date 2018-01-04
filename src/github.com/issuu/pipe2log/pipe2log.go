@@ -48,7 +48,37 @@ var flagRFC3339 bool
 // if using local log device we can't set/change hostname
 var localLogging bool
 
-var logWriter *syslog.Writer
+
+type logWrapper struct{
+    useConsole bool
+    syslogWriter *syslog.Writer
+}
+func (l *logWrapper) Alert(msg string) {
+    if (l.useConsole) {fmt.Println("ALERT "+msg)} else {l.syslogWriter.Alert(msg)}
+}
+func (l *logWrapper) Crit(msg string) {
+    if (l.useConsole) {fmt.Println("CRITICAL "+msg)} else {l.syslogWriter.Crit(msg)}
+}
+func (l *logWrapper) Err(msg string) {
+    if (l.useConsole) {fmt.Println("ERROR "+msg)} else {l.syslogWriter.Err(msg)}
+}
+func (l *logWrapper) Warning(msg string) {
+    if (l.useConsole) {fmt.Println("WARNING "+msg)} else {l.syslogWriter.Warning(msg)}
+}
+func (l *logWrapper) Notice(msg string) {
+    if (l.useConsole) {fmt.Println("NOTICE "+msg)} else {l.syslogWriter.Notice(msg)}
+}
+func (l *logWrapper) Info(msg string) {
+    if (l.useConsole) {fmt.Println("INFO "+msg)} else {l.syslogWriter.Info(msg)}
+}
+func (l *logWrapper) Debug(msg string) {
+    if (l.useConsole) {fmt.Println("DEBUG "+msg)} else {l.syslogWriter.Debug(msg)}
+}
+func (l *logWrapper) Close() {
+    if (!l.useConsole) {l.syslogWriter.Close()}
+}
+var logWriter logWrapper
+
 
 type pm2Message struct {
     Message string
@@ -70,6 +100,23 @@ type pm2Message2 struct {
     Status string       `json:"status"`      // iff type is process_event
     App_name string     `json:"app_name"`
     Process_id string   `json:"process_id"`
+}
+
+type pinoMessage struct {
+    Message string
+    Type string
+    Level int64
+    Stack string
+    Hostname string
+    Process_id int64
+}
+type pinoMessage1 struct {
+    Message string      `json:"msg"`
+    Stack string        `json:"stack"`
+    Level int64         `json:"level"`       // 50 -> err, 40 -> warn, 30 -> info
+    Type string         `json:"type"`        // "out", "err", "process_event", ... ?
+    Hostname string     `json:"hostname"`
+    Process_id int64    `json:"pid"`
 }
 
 const RFC3339Milli = "2006-01-02T15:04:05.999Z07:00"
@@ -209,16 +256,19 @@ func ScanLines(data []byte, atEOF bool) (advance int, scantoken []byte, err erro
 // so we do not to worry about curly brackets inside a string
 //
 func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error) {
-    if atEOF && len(data) == 0 {
+    if len(data) == 0 {
+        // also test if atEOF ?
+        // Request more data.
         return 0, nil, nil
     }
 
     // read open bracket
     if data[0] != '{' {
-        if idx := bytes.IndexByte(data, '{'); idx >= 0 {
-            log.Printf(appTagVersion+" skipping up to next curly bracket: %s\n",data[0:idx])
+        if idx := bytes.IndexByte(data, '{'); idx > 0 {
+            log.Printf(appTagVersion+" skipping %d chars up to next curly bracket: %s\n",idx,data[0:idx])
             return idx, nil, nil
         }
+        // skip the current buffer, did not find an open bracket
         return len(data), nil, nil
     }
 
@@ -236,7 +286,6 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
             }
             // Request more data.
             return 0, nil, nil
-            //break loop
         }
         switch data[p] {
         case '"':
@@ -252,11 +301,17 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
             escape = false
             if (braces == 0) {
                 // hooray we got an object
-                return p+1,data[0:p+1], nil
+                // advance past newlines
+                var e = p
+                for {
+                   p++
+                   if p >= l { break }
+                   if data[p] != '\n' || data[p] != '\r' { break }
+                }
+                return p, data[0:e+1], nil
             }
         default:
             escape = false
-            //fmt.Printf("%s\t%s\t%q\n", fset.Position(pos), tok, lit)
         }
         p++
     }
@@ -276,7 +331,7 @@ var severity_re = regexp.MustCompile("^[ ]*([0-9- /:.]*)[[]?((DEBUG|INFO|NOTICE|
 
 func processScanData(data scandata) {
     switch {
-    case flagLogformat == "pm2json":
+    case flagLogformat == "pm2json" || flagLogformat == "pm2log":
         var m pm2Message
         var m1 pm2Message1
         err := json.Unmarshal(data.data, &m1)
@@ -312,12 +367,42 @@ func processScanData(data scandata) {
             default:
                 logmsg := fmt.Sprintf("%s unknown pm2 log type '%s', data: '%s'", appTagVersion, m.Type, data.data)
                 logWriter.Crit(logmsg)
-                //log.Println(logmsg)
             }
         } else {
             logmsg := fmt.Sprintf("%s decoding error cannot parse json '%s', err '%s'", appTagVersion, data.data, err)
             logWriter.Warning(logmsg)
-            //log.Println(logmsg)
+        }
+    case flagLogformat == "pino":
+        var m pinoMessage
+        var m1 pinoMessage1
+        err := json.Unmarshal(data.data, &m1)
+        if err == nil {
+            m.Level = m1.Level
+            m.Type = m1.Type
+            m.Message = m1.Message
+            m.Stack = m1.Stack
+            m.Process_id = m1.Process_id
+            m.Hostname = m1.Hostname
+        }
+        if err == nil {
+            switch {
+            case m.Type == "Error":
+                logWriter.Err(m.Stack)
+            case m.Type == "" && m.Level >= 50:
+                logWriter.Err(m.Message)
+            case m.Type == "" && m.Level >= 40:
+                logWriter.Warning(m.Message)
+            case m.Type == "" && m.Level >= 30:
+                logWriter.Info(m.Message)
+            case m.Type == "" && m.Level >= 20:
+                logWriter.Debug(m.Message)
+            default:
+                logmsg := fmt.Sprintf("%s unknown pino log type '%s', level: %d, data: '%s'", appTagVersion, m.Type, m.Level, data.data)
+                logWriter.Crit(logmsg)
+            }
+        } else {
+            logmsg := fmt.Sprintf("%s decoding error cannot parse json '%s', err '%s'", appTagVersion, data.data, err)
+            logWriter.Warning(logmsg)
         }
     default:
         rs := severity_re.FindSubmatch(data.data)
@@ -357,7 +442,7 @@ func scanPipeLog() {
     var r1  *bufio.Scanner
     r1 = bufio.NewScanner(os.Stdin)
 
-    if flagLogformat == "pm2json" {
+    if flagLogformat == "pm2json" || flagLogformat == "pm2log" || flagLogformat == "pino" {
         r1.Split(ScanJSON)
     } else {
         r1.Split(ScanLines)
@@ -405,7 +490,7 @@ func scanCommand() {
     r1 = bufio.NewScanner(p1)
     r2 = bufio.NewScanner(p2)
 
-    if flagLogformat == "pm2json" {
+    if flagLogformat == "pm2json" || flagLogformat == "pm2log" || flagLogformat == "pino" {
         r1.Split(ScanJSON)
         r2.Split(ScanJSON)
     } else {
@@ -470,11 +555,11 @@ func init() {
     flag.BoolVar(&flagVersion, "version", false, "prints current app version")
     flag.BoolVar(&flagRFC3164, "rfc3164", false, "use original syslog rfc3164 msg format (default is to use rfc5424)")
     flag.BoolVar(&flagRFC3339, "rfc3339", false, "use rfc3339 timestamp (milliseconds) with rfc3164 message format")
-    flag.StringVar(&flagSyslogUri, "sysloguri", defaultSyslogUri, "syslog host, i.e. localhost, /dev/log, (udp|tcp)://localhost[:514]. When using local log device /dev/log you can't change/set the hostname in the message. Local logging also implies rfc3164 format.")
+    flag.StringVar(&flagSyslogUri, "sysloguri", defaultSyslogUri, "syslog host, i.e. localhost, /dev/log, (udp|tcp)://localhost[:514]. When using local log device /dev/log you can't change/set the hostname in the message. Local logging also implies rfc3164 format. Use 'console' for logging to stdout.")
     flag.StringVar(&flagSyslogFacility, "facility", defaultSyslogFacility, "what syslog facility to use.")
     flag.StringVar(&flagSyslogAppname, "appname", defaultSyslogAppname, "what application name to use in syslog message.")
     flag.StringVar(&flagSyslogHostname, "hostname", defaultSyslogHostname, "what source/hostname to use in syslog message, use a plus '+' prefix to combine the source with current existing hostname, useful for docker container ids.")
-    flag.StringVar(&flagLogformat, "logformat", defaultLogformat, "default behaviour is to scan for severity, i.e. ERROR,DEBUG,CRIT,.. in the beginning of every line of input. Other options for logformat are 'pm2json' for parsing NodeJs PM2 json output.")
+    flag.StringVar(&flagLogformat, "logformat", defaultLogformat, "default behaviour is to scan for severity, i.e. ERROR,DEBUG,CRIT,.. in the beginning of every line of input. Other options for logformat are 'pm2json' and 'pino' for parsing NodeJs PM2/pino json output.")
     flag.StringVar(&flagCommand, "cmd", defaultCommand, "currently can't be used for anything else than reading from pipe.")
 }
 
@@ -482,7 +567,6 @@ func init() {
 func main() {
 
     var err error
-    var u *url.URL
 
     flag.Parse()
     if flagVersion {
@@ -492,40 +576,52 @@ func main() {
       os.Exit(0)
     }
 
+    if flagLogformat != "" && flagLogformat != "pm2json" && flagLogformat != "pm2log" && flagLogformat != "pino" {
+      log.Fatalf("Unsupported logformat: %s\n", flagLogformat)
+      os.Exit(1)
+    }
+
     // other args: flag.Args() should be passed as cmd args
 
-    // decode syslog_uri
-    u, err = url.Parse(flagSyslogUri)
-    // logserver:514 or just logserver
-    if (u.Host == "" && (u.Path == "" && u.Scheme != "" || u.Path != "" && !strings.HasPrefix(u.Path,"/") && u.Scheme == "")) {
-        u, err = url.Parse("udp://"+flagSyslogUri)
-    }
-    // host w/o port number
-    if (u.Host != "" && strings.Index(u.Host,":") == -1) {
-        u.Host += ":514"
-    }
-    if flagSyslogUri == "localhost" {
-        u.Scheme = ""
-        u.Host = ""
-        u.Path = ""
-    }
-    // if using local log device we can't set/change hostname
-    localLogging = u.Scheme == "" && u.Host == "" && strings.HasPrefix(u.Path,"/")
+    logWriter.useConsole = true
 
-    if err != nil {
-        log.Fatal(err)
-    }
+    if flagSyslogUri != "console" {
+        var u *url.URL
 
-    syslog_facility := mapFacilityString(flagSyslogFacility)
+        // decode syslog_uri
+        u, err = url.Parse(flagSyslogUri)
+        // logserver:514 or just logserver
+        if (u.Host == "" && (u.Path == "" && u.Scheme != "" || u.Path != "" && !strings.HasPrefix(u.Path,"/") && u.Scheme == "")) {
+            u, err = url.Parse("udp://"+flagSyslogUri)
+        }
+        // host w/o port number
+        if (u.Host != "" && strings.Index(u.Host,":") == -1) {
+            u.Host += ":514"
+        }
+        if flagSyslogUri == "localhost" {
+            u.Scheme = ""
+            u.Host = ""
+            u.Path = ""
+        }
+        // if using local log device we can't set/change hostname
+        localLogging = u.Scheme == "" && u.Host == "" && strings.HasPrefix(u.Path,"/")
 
-    logWriter, err = syslog.Dial(u.Scheme, u.Host+u.Path, syslog.LOG_DEBUG|syslog_facility, flagSyslogAppname)
-    checkError(err)
+        if err != nil {
+            log.Fatal(err)
+        }
 
-    // set syslog format
-    if flagRFC3164 || localLogging {
-        logWriter.SetFormatter(issuuRFC3164Formatter)
-    } else {
-        logWriter.SetFormatter(issuuRFC5424Formatter)
+        syslog_facility := mapFacilityString(flagSyslogFacility)
+
+        logWriter.syslogWriter, err = syslog.Dial(u.Scheme, u.Host+u.Path, syslog.LOG_DEBUG|syslog_facility, flagSyslogAppname)
+        checkError(err)
+
+        // set syslog format
+        if flagRFC3164 || localLogging {
+            logWriter.syslogWriter.SetFormatter(issuuRFC3164Formatter)
+        } else {
+            logWriter.syslogWriter.SetFormatter(issuuRFC5424Formatter)
+        }
+        logWriter.useConsole = false
     }
 
     logWriter.Info(appTag+" program started, version "+appVersion)
