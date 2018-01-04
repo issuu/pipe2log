@@ -17,11 +17,11 @@ Usage of pipe2log (check for updated documentation with pipe2log -help):
   -logformat string
         default behaviour is to scan for severity, i.e. ERROR,DEBUG,CRIT,.. in
         the beginning of every line of input. Other options for logformat are
-        'pm2json' for parsing NodeJs PM2 json output.
+        'pm2json' and 'pino' for parsing NodeJs PM2/pino json output.
   -sysloguri string
         syslog host, i.e. localhost, /dev/log, (udp|tcp)://localhost[:514] (default "localhost")
         When using local log device /dev/log you can not change/set the hostname in the message.
-        Local logging also implies rfc3164 format.
+        Local logging also implies rfc3164 format. Use 'console' for logging to stdout.
   -rfc3164
         format syslog messages using the rfc3164 protocol,
         default is to use the newer rfc5424 protocol.
