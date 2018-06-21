@@ -308,7 +308,7 @@ func ScanJSON(data []byte, atEOF bool) (advance int, scantoken []byte, err error
                 for {
                    p++
                    if p >= l { break }
-                   if data[p] != '\n' || data[p] != '\r' { break }
+                   if data[p] != '\n' && data[p] != '\r' { break }
                 }
                 return p, data[0:e+1], nil
             }
