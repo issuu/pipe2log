@@ -20,7 +20,7 @@ import (
 const appTag = "pipe2log"
 
 const (
-    startBufSize = 1024 * 1024    // Size of initial allocation for buffer.
+    startBufSize = 4024 * 1024    // Size of initial allocation for buffer.
 )
 
 var (
